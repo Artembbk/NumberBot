@@ -5,6 +5,7 @@ import boto3
 import json
 from io import BytesIO
 from gtts import gTTS
+from telebot import types
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
@@ -76,9 +77,14 @@ def resetNumbers(chatId):
 
 
 # --------------------- bot ---------------------
+
+
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
-    bot.send_message(message.chat.id, START_MESSAGE)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    start_learning_btn = types.KeyboardButton('Начать учить числа')
+    markup.add(start_learning_btn)
+    bot.send_message(message.chat.id, START_MESSAGE, reply_markup=markup)
 
 @bot.message_handler(commands=['start_learning'])
 def start_learning(message):
@@ -130,6 +136,13 @@ def number_list(message):
     data = json.load_s3("data.json")
     numbers = data[str(message.chat.id)]["numbers"]
     bot.send_message(message.chat.id, str(numbers))
+
+@bot.message_handler(content_types='text')
+def message_reply(message):
+    if message.text == 'Начать учить числа':
+        start_learning(message)
+    else:
+        bot.send_message(message.chat.id, "что то странное")
 
 # ---------------- local testing ----------------
 if __name__ == '__main__':
