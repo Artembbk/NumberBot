@@ -1,0 +1,3 @@
+pyTelegramBotAPI
+boto3
+gtts
