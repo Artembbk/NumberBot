@@ -76,15 +76,25 @@ def resetNumbers(chatId):
     json.dump_s3(data, "data.json")
 
 
+
+
 # --------------------- bot ---------------------
 
+def create_one_time_markup():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    start_learning_btn = types.KeyboardButton('Учить числа c нуля')
+    learn_btn = types.KeyboardButton('Учить')
+    add_numbers = types.KeyboardButton('Добавить новые числа')
+    number_list = types.KeyboardButton('Посмотреть изучаемые числа')
+    markup.add(start_learning_btn, learn_btn, add_numbers, number_list)
+    return markup
+
+markup = create_one_time_markup()
 
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    start_learning_btn = types.KeyboardButton('Начать учить числа c нуля')
-    markup.add(start_learning_btn)
     bot.send_message(message.chat.id, START_MESSAGE, reply_markup=markup)
+
 
 @bot.message_handler(commands=['start_learning'])
 def start_learning(message):
@@ -107,7 +117,7 @@ def learn(message):
     fp = BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
-    bot.send_message(message.chat.id, number)
+    bot.send_message(message.chat.id, number, reply_markup=markup)
     bot.send_voice(message.chat.id, fp)
 
 def add_numbers(message):
@@ -124,7 +134,7 @@ def add_numbers(message):
 
     json.dump_s3(data, "data.json")
 
-    bot.send_message(message.chat.id, "Успешно добавлено")
+    bot.send_message(message.chat.id, "Успешно добавлено", reply_markup=markup)
 
 @bot.message_handler(commands=['add_numbers'])
 def add_numbers_handler(message):
@@ -137,14 +147,20 @@ def add_numbers_handler(message):
 def number_list(message):
     data = json.load_s3("data.json")
     numbers = data[str(message.chat.id)]["numbers"]
-    bot.send_message(message.chat.id, str(numbers))
+    bot.send_message(message.chat.id, str(numbers), reply_markup=markup)
 
 @bot.message_handler(content_types='text')
 def message_reply(message):
-    if message.text == 'Начать учить числа c нуля':
+    if message.text == 'Учить числа c нуля':
         start_learning(message)
+    elif message.text == 'Учить':
+        learn(message)
+    elif message.text == 'Добавить новые числа':
+        add_numbers_handler(message)
+    elif message.text == 'Посмотреть изучаемые числа':
+        number_list(message)
     else:
-        bot.send_message(message.chat.id, "что то странное")
+        bot.send_message(message.chat.id, "что то странное", reply_markup=markup)
 
 # ---------------- local testing ----------------
 if __name__ == '__main__':
