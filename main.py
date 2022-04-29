@@ -81,8 +81,8 @@ def resetNumbers(chatId):
 
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    start_learning_btn = types.KeyboardButton('Начать учить числа')
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    start_learning_btn = types.KeyboardButton('Начать учить числа c нуля')
     markup.add(start_learning_btn)
     bot.send_message(message.chat.id, START_MESSAGE, reply_markup=markup)
 
@@ -92,7 +92,7 @@ def start_learning(message):
     msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
                                             "1-5,8,10,12-20,13")
     resetNumbers(message.chat.id)
-    bot.register_next_step_handler(msg, add_numbers1)
+    bot.register_next_step_handler(msg, add_numbers)
 
 
 @bot.message_handler(commands=['learn'])
@@ -110,7 +110,7 @@ def learn(message):
     bot.send_message(message.chat.id, number)
     bot.send_voice(message.chat.id, fp)
 
-def add_numbers1(message):
+def add_numbers(message):
     print('add_numbers1')
     data = json.load_s3("data.json")
 
@@ -124,12 +124,14 @@ def add_numbers1(message):
 
     json.dump_s3(data, "data.json")
 
+    bot.send_message(message.chat.id, "Успешно добавлено")
+
 @bot.message_handler(commands=['add_numbers'])
-def add_numbers(message):
-    print(add_numbers)
+def add_numbers_handler(message):
+    print(add_numbers_handler)
     msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
                                             "1-5,8,10,12-20,13")
-    bot.register_next_step_handler(msg, add_numbers1)
+    bot.register_next_step_handler(msg, add_numbers)
 
 @bot.message_handler(commands=['list'])
 def number_list(message):
@@ -139,7 +141,7 @@ def number_list(message):
 
 @bot.message_handler(content_types='text')
 def message_reply(message):
-    if message.text == 'Начать учить числа':
+    if message.text == 'Начать учить числа c нуля':
         start_learning(message)
     else:
         bot.send_message(message.chat.id, "что то странное")
