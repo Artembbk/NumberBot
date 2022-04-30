@@ -9,6 +9,29 @@ from telebot import types
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
+def create_common_markup():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    start_learning_btn = types.KeyboardButton('Учить числа c нуля')
+    learn_btn = types.KeyboardButton('Учить')
+    add_numbers_btn = types.KeyboardButton('Добавить новые числа')
+    number_list_btn = types.KeyboardButton('Посмотреть изучаемые числа')
+    markup.add(start_learning_btn, learn_btn, add_numbers_btn, number_list_btn)
+    return markup
+
+
+def create_learn_markup():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    know_btn = types.KeyboardButton('Знаю')
+    dont_know_btn = types.KeyboardButton('Не знаю')
+    stop_learn_btn = types.KeyboardButton('Закончить')
+    markup.add(know_btn, dont_know_btn, stop_learn_btn)
+    return markup
+
+
+markup = create_common_markup()
+learn_markup = create_learn_markup()
+
+
 s3 = boto3.resource(
     's3',
     aws_access_key_id='YCAJEibMQ54FsR4sCwWVeQOtW',
@@ -19,6 +42,8 @@ s3 = boto3.resource(
 
 json.load_s3 = lambda f: json.load(s3.Object(key=f).get()["Body"])
 json.dump_s3 = lambda obj, f: s3.Object(key=f).put(Body=json.dumps(obj))
+
+
 
 # ---------------- dialog params ----------------
 START_MESSAGE = "Привет! Я научу тебя правильно произносить числа. " \
@@ -80,17 +105,6 @@ def resetNumbers(chatId):
 
 # --------------------- bot ---------------------
 
-def create_one_time_markup():
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    start_learning_btn = types.KeyboardButton('Учить числа c нуля')
-    learn_btn = types.KeyboardButton('Учить')
-    add_numbers = types.KeyboardButton('Добавить новые числа')
-    number_list = types.KeyboardButton('Посмотреть изучаемые числа')
-    markup.add(start_learning_btn, learn_btn, add_numbers, number_list)
-    return markup
-
-markup = create_one_time_markup()
-
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
     bot.send_message(message.chat.id, START_MESSAGE, reply_markup=markup)
@@ -117,7 +131,7 @@ def learn(message):
     fp = BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
-    bot.send_message(message.chat.id, number, reply_markup=markup)
+    bot.send_message(message.chat.id, number, reply_markup=learn_markup)
     bot.send_voice(message.chat.id, fp)
 
 def add_numbers(message):
@@ -143,11 +157,13 @@ def add_numbers_handler(message):
                                             "1-5,8,10,12-20,13")
     bot.register_next_step_handler(msg, add_numbers)
 
+
 @bot.message_handler(commands=['list'])
 def number_list(message):
     data = json.load_s3("data.json")
     numbers = data[str(message.chat.id)]["numbers"]
     bot.send_message(message.chat.id, str(numbers), reply_markup=markup)
+
 
 @bot.message_handler(content_types='text')
 def message_reply(message):
@@ -159,6 +175,12 @@ def message_reply(message):
         add_numbers_handler(message)
     elif message.text == 'Посмотреть изучаемые числа':
         number_list(message)
+    elif message.text == 'Знаю':
+        learn(message)
+    elif message.text == 'Не знаю':
+        learn(message)
+    elif message.text == 'Закончить':
+        bot.send_message(message.chat.id, "Молодец! Ты хорошо поучил! Выбери что хочешь сделать", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "что то странное", reply_markup=markup)
 
