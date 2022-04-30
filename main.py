@@ -9,8 +9,9 @@ from telebot import types
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
-def create_common_markup():
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+
+def create_common_markup(one_time=False):
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=one_time)
     start_learning_btn = types.KeyboardButton('Учить числа c нуля')
     learn_btn = types.KeyboardButton('Учить')
     add_numbers_btn = types.KeyboardButton('Добавить новые числа')
@@ -20,7 +21,7 @@ def create_common_markup():
 
 
 def create_learn_markup():
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup = types.ReplyKeyboardMarkup()
     know_btn = types.KeyboardButton('Знаю')
     dont_know_btn = types.KeyboardButton('Не знаю')
     stop_learn_btn = types.KeyboardButton('Закончить')
@@ -28,9 +29,9 @@ def create_learn_markup():
     return markup
 
 
-markup = create_common_markup()
+common_markup = create_common_markup()
 learn_markup = create_learn_markup()
-
+hide_markup = types.ReplyKeyboardRemove()
 
 s3 = boto3.resource(
     's3',
@@ -42,8 +43,6 @@ s3 = boto3.resource(
 
 json.load_s3 = lambda f: json.load(s3.Object(key=f).get()["Body"])
 json.dump_s3 = lambda obj, f: s3.Object(key=f).put(Body=json.dumps(obj))
-
-
 
 # ---------------- dialog params ----------------
 START_MESSAGE = "Привет! Я научу тебя правильно произносить числа. " \
@@ -58,6 +57,7 @@ START_MESSAGE = "Привет! Я научу тебя правильно про�
                 "/list - список чисел для изучения"
 
 START_LEARNING = "Начать учить числа с нуля\n"
+
 
 # ----------------------some functions------------
 def isNumber(s):
@@ -101,20 +101,18 @@ def resetNumbers(chatId):
     json.dump_s3(data, "data.json")
 
 
-
-
 # --------------------- bot ---------------------
 
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
-    bot.send_message(message.chat.id, START_MESSAGE, reply_markup=markup)
+    bot.send_message(message.chat.id, START_MESSAGE, reply_markup=common_markup)
 
 
 @bot.message_handler(commands=['start_learning'])
 def start_learning(message):
     print('start_learning')
     msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
-                                            "1-5,8,10,12-20,13")
+                                            "1-5,8,10,12-20,13", reply_markup=hide_markup)
     resetNumbers(message.chat.id)
     bot.register_next_step_handler(msg, add_numbers)
 
@@ -134,6 +132,7 @@ def learn(message):
     bot.send_message(message.chat.id, number, reply_markup=learn_markup)
     bot.send_voice(message.chat.id, fp)
 
+
 def add_numbers(message):
     print('add_numbers1')
     data = json.load_s3("data.json")
@@ -148,13 +147,14 @@ def add_numbers(message):
 
     json.dump_s3(data, "data.json")
 
-    bot.send_message(message.chat.id, "Успешно добавлено", reply_markup=markup)
+    bot.send_message(message.chat.id, "Успешно добавлено", reply_markup=common_markup)
+
 
 @bot.message_handler(commands=['add_numbers'])
 def add_numbers_handler(message):
     print(add_numbers_handler)
     msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
-                                            "1-5,8,10,12-20,13")
+                                            "1-5,8,10,12-20,13", reply_markup=hide_markup)
     bot.register_next_step_handler(msg, add_numbers)
 
 
@@ -162,7 +162,7 @@ def add_numbers_handler(message):
 def number_list(message):
     data = json.load_s3("data.json")
     numbers = data[str(message.chat.id)]["numbers"]
-    bot.send_message(message.chat.id, str(numbers), reply_markup=markup)
+    bot.send_message(message.chat.id, str(numbers), reply_markup=common_markup)
 
 
 @bot.message_handler(content_types='text')
@@ -180,9 +180,10 @@ def message_reply(message):
     elif message.text == 'Не знаю':
         learn(message)
     elif message.text == 'Закончить':
-        bot.send_message(message.chat.id, "Молодец! Ты хорошо поучил! Выбери что хочешь сделать", reply_markup=markup)
+        bot.send_message(message.chat.id, "Молодец! Ты хорошо поучил! Выбери что хочешь сделать", reply_markup=common_markup)
     else:
-        bot.send_message(message.chat.id, "что то странное", reply_markup=markup)
+        bot.send_message(message.chat.id, "что то странное", reply_markup=common_markup)
+
 
 # ---------------- local testing ----------------
 if __name__ == '__main__':
