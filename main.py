@@ -16,7 +16,8 @@ def create_common_markup(one_time=False):
     learn_btn = types.KeyboardButton('Учить')
     add_numbers_btn = types.KeyboardButton('Добавить новые числа')
     number_list_btn = types.KeyboardButton('Посмотреть изучаемые числа')
-    markup.add(start_learning_btn, learn_btn, add_numbers_btn, number_list_btn)
+    markup.add(start_learning_btn, learn_btn)
+    markup.add(add_numbers_btn, number_list_btn)
     return markup
 
 
@@ -25,7 +26,8 @@ def create_learn_markup():
     know_btn = types.KeyboardButton('Знаю')
     dont_know_btn = types.KeyboardButton('Не знаю')
     stop_learn_btn = types.KeyboardButton('Закончить')
-    markup.add(know_btn, dont_know_btn, stop_learn_btn)
+    markup.add(know_btn, dont_know_btn)
+    markup.add(stop_learn_btn)
     return markup
 
 
