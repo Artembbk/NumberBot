@@ -156,21 +156,29 @@ def start_learning(message):
 # FIXME #5
 @bot.message_handler(commands=['learn'])
 def learn(message):
+    
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
-    # Найти минимальную категории, где есть числа
-    # Оттуда и будем выбирать число
-    lowest_category = ""
+    # Ищем непустые категории
+    not_empty_categories = []
     for category in ["0", "1", "2", "3", "4", "5"]:
         if data[chatId]["numbers"][category]:
-            lowest_category = category
-            break
-    if lowest_category == "":
+            not_empty_categories.append(category)
+    if not not_empty_categories:
         bot.send_message(message.chat.id, NO_MORE_NUMBERS, reply_markup=common_markup)
+        return
+    
+    # Строим веса
+    weights = []
+    for i in range(len(not_empty_categories) - 1, -1, -1):
+        weights.append(8**i)
+
+    # Выбираем категорию в соответствии с весами
+    category = random.choices(not_empty_categories, weights=weights, k=1)[0]
     
     # Выбираем число из выбранной категории
-    numbers = data[chatId]["numbers"][lowest_category]
+    numbers = data[chatId]["numbers"][category]
     number = numbers[randint(0, len(numbers) - 1)]
 
     # Озвучиваем число
@@ -180,12 +188,13 @@ def learn(message):
     # ответа знаю/не знаю переместить нужное число
     # в нужную категорию
     data[chatId]["last_number"] = number
-    data[chatId]["last_category"] = lowest_category
+    data[chatId]["last_category"] = category
     
     json.dump_s3(data, "data.json")
     
     bot.send_message(message.chat.id, number, reply_markup=learn_markup)
     bot.send_voice(message.chat.id, fp)
+
 
 def add_numbers(message):
     data = json.load_s3("data.json")
