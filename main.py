@@ -10,7 +10,6 @@ from telebot import types
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
-
 def create_common_markup(one_time=False):
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=one_time)
     start_learning_btn = types.KeyboardButton('Учить числа c нуля')
@@ -96,10 +95,7 @@ def getNumberList(numberString):
 
 def resetNumbers(chatId):
     data = json.load_s3("data.json")
-
-    print(data)
-    print("found?", chatId in data)
-    data[str(chatId)] = {"numbers": {"0": [], "1": [], "2": []}, "last_number": 0, "last_category": "0"}
+    data[str(chatId)] = {"numbers": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []}, "last_number": 0, "last_category": "0"}
 
     json.dump_s3(data, "data.json")
 
@@ -113,68 +109,53 @@ def say_welcome(message):
 
 @bot.message_handler(commands=['start_learning'])
 def start_learning(message):
-    try:
-        print('start_learning')
-        msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
-                                                "1-5,8,10,12-20,13", reply_markup=hide_markup)
-        resetNumbers(message.chat.id)
-        bot.register_next_step_handler(msg, add_numbers)
-    except Exception as e:
-        print(e)
+    print('start_learning')
+    msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
+                                            "1-5,8,10,12-20,13", reply_markup=hide_markup)
+    resetNumbers(message.chat.id)
+    bot.register_next_step_handler(msg, add_numbers)
 
 
 @bot.message_handler(commands=['learn'])
 def learn(message):
-    try:
-        print('learn')
-        data = json.load_s3("data.json")
-        print(data)
-        not_empty_categories = []
-        weights = [6, 2, 1]
-        for category in ["0", "1", "2"]:
-            if data[str(message.chat.id)]["numbers"][category]:
-                not_empty_categories.append(category)
-        category = random.choices(not_empty_categories, weights=weights[:len(not_empty_categories)])[0]
-        print("Oh")
-        print(data)
-        print(category)
-        numbers = data[str(message.chat.id)]["numbers"][category]
-        print("YEAH")
-        print(numbers)
-        number = numbers[randint(0, len(numbers) - 1)]
-        tts = gTTS(text=str(number), lang="en")
-        fp = BytesIO()
-        tts.write_to_fp(fp)
-        fp.seek(0)
-        data[str(message.chat.id)]["last_number"] = number
-        data[str(message.chat.id)]["last_category"] = category
-        json.dump_s3(data, "data.json")
-        bot.send_message(message.chat.id, number, reply_markup=learn_markup)
-        bot.send_voice(message.chat.id, fp)
-    except Exception as e:
-        print(e)
+    print('learn')
+    data = json.load_s3("data.json")
+    print(data)
+    lowest_category = "?"
+    for category in ["0", "1", "2", "3", "4", "5"]:
+        if data[str(message.chat.id)]["numbers"][category]:
+            lowest_category = category
+            break
+    if lowest_category == "?":
+        bot.send_message(message.chat.id, "Я тебя больше ничему не могу научить...", reply_markup=common_markup)
+    category = lowest_category
+    numbers = data[str(message.chat.id)]["numbers"][category]
+    number = numbers[randint(0, len(numbers) - 1)]
+    tts = gTTS(text=str(number), lang="en")
+    fp = BytesIO()
+    tts.write_to_fp(fp)
+    fp.seek(0)
+    data[str(message.chat.id)]["last_number"] = number
+    data[str(message.chat.id)]["last_category"] = category
+    json.dump_s3(data, "data.json")
+    bot.send_message(message.chat.id, number, reply_markup=learn_markup)
+    bot.send_voice(message.chat.id, fp)
 
 def add_numbers(message):
-    try:
-        print('add_numbers')
-        data = json.load_s3("data.json")
-        print("data = json.load_s3('data.json')")
-        data[str(message.chat.id)]["numbers"]["0"] += getNumberList(message.text)
-        print('data[str(message.chat.id)]["numbers"]["0"] += getNumberList(message.text)')
-        data[str(message.chat.id)]["numbers"]["0"] = list(
-            set(data[str(message.chat.id)]["numbers"]["0"]) - set(data[str(message.chat.id)]["numbers"]["1"]) - set(data[str(message.chat.id)]["numbers"]["2"])
-        )
-        print('data[str(message.chat.id)]["numbers"]["0"] = list')
-        json.dump_s3(data, "data.json")
-        print('json.dump_s3(data, "data.json")')
-        bot.send_message(message.chat.id, "Успешно добавлено", reply_markup=common_markup)
-    except Exception as e:
-        print(e)
+    print('add_numbers')
+    data = json.load_s3("data.json")
+    data[str(message.chat.id)]["numbers"]["0"] += getNumberList(message.text)
+    category_0_set = set(data[str(message.chat.id)]["numbers"]["0"])
+    for category in ["1", "2", "3", "4", "5", "6"]:
+        category_0_set -= set(data[str(message.chat.id)]["numbers"][category])
+    data[str(message.chat.id)]["numbers"]["0"] = list(category_0_set)
+    json.dump_s3(data, "data.json")
+    bot.send_message(message.chat.id, "Успешно добавлено", reply_markup=common_markup)
 
 
 @bot.message_handler(commands=['add_numbers'])
 def add_numbers_handler(message):
-    print(add_numbers_handler)
+    print("add_numbers_handler")
     msg = bot.send_message(message.chat.id, "Введи числа, которые ты хочешь учить в подобном формате:\n"
                                             "1-5,8,10,12-20,13", reply_markup=hide_markup)
     bot.register_next_step_handler(msg, add_numbers)
@@ -184,38 +165,29 @@ def add_numbers_handler(message):
 def number_list(message):
     print("number_list")
     data = json.load_s3("data.json")
-    print(data)
-    print(data[str(message.chat.id)]["numbers"]["0"])
-    print(data[str(message.chat.id)]["numbers"]["1"])
-    print(data[str(message.chat.id)]["numbers"]["2"])
-    numbers = data[str(message.chat.id)]["numbers"]["0"] + data[str(message.chat.id)]["numbers"]["1"] + data[str(message.chat.id)]["numbers"]["2"]
+    numbers = []
+    for category in ["0", "1", "2", "3", "4", "5", "6"]:
+        numbers += data[str(message.chat.id)]["numbers"][category]
     numbers.sort()
     bot.send_message(message.chat.id, str(numbers), reply_markup=common_markup)
 
 
 def know(message):
-    try:
-        print('know')
-        data = json.load_s3("data.json")
-        print("know", data)
-        last_category = data[str(message.chat.id)]["last_category"]
-        last_number = data[str(message.chat.id)]["last_number"]
-        data[str(message.chat.id)]["numbers"][last_category].remove(last_number)
-        data[str(message.chat.id)]["numbers"][str(min(int(last_category) + 1, 2))].append(last_number)
-        print("know", data)
-        json.dump_s3(data, "data.json")
-    except Exception as e:
-        print(e)
+    print('know')
+    data = json.load_s3("data.json")
+    last_category = data[str(message.chat.id)]["last_category"]
+    last_number = data[str(message.chat.id)]["last_number"]
+    data[str(message.chat.id)]["numbers"][last_category].remove(last_number)
+    data[str(message.chat.id)]["numbers"][str(min(int(last_category) + 1, 6))].append(last_number)
+    json.dump_s3(data, "data.json")
 
 def dont_know(message):
     print('dont_know')
     data = json.load_s3("data.json")
-    print("dont_know", data)
     last_category = data[str(message.chat.id)]["last_category"]
     last_number = data[str(message.chat.id)]["last_number"]
     data[str(message.chat.id)]["numbers"][last_category].remove(last_number)
     data[str(message.chat.id)]["numbers"][str(max(int(last_category) - 1, 0))].append(last_number)
-    print("dont_know", data)
     json.dump_s3(data, "data.json")
 
 
@@ -236,7 +208,7 @@ def message_reply(message):
         dont_know(message)
         learn(message)
     elif message.text == 'Закончить':
-        bot.send_message(message.chat.id, "Молодец! Ты хорошо поучил! Выбери что хочешь сделать", reply_markup=common_markup)
+        bot.send_message(message.chat.id, "Молодец! Ты хорошо поучил(а)! Выбери что хочешь сделать", reply_markup=common_markup)
     else:
         bot.send_message(message.chat.id, "что то странное", reply_markup=common_markup)
 
