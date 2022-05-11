@@ -11,6 +11,9 @@ import logging
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
+
+# ----------------Логгер------------------------------------------
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -18,7 +21,6 @@ root_handler = logging.getLogger().handlers[0]
 root_handler.setFormatter(logging.Formatter(
 	"%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 ))
-
 
 
 # ---------------- Текст ----------------------------------------
@@ -153,12 +155,9 @@ def getFpOfSynthesizedNumber(number):
 
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
-    logger.debug('debug message')
-    logger.info('info message')
-    logger.warning('warn message')
-    logger.error('error message')
-    logger.critical('critical message')
+    logger.info('Пользователь ввел: %s', message.text)
     bot.send_message(message.chat.id, START_MESSAGE, reply_markup=common_markup, parse_mode="HTML")
+    logger.info("Отработало")
 
 
 @bot.message_handler(commands=['start_learning'])
@@ -167,8 +166,9 @@ def start_learning(message):
     resetNumbers(message.chat.id)
     bot.register_next_step_handler(msg, add_numbers)
 
+    logger.info("Отработало")
 
-# FIXME #5
+
 @bot.message_handler(commands=['learn'])
 def learn(message):
     
@@ -210,8 +210,12 @@ def learn(message):
     bot.send_message(message.chat.id, number, reply_markup=learn_markup)
     bot.send_voice(message.chat.id, fp)
 
+    logger.info("Отработало")
+
 
 def add_numbers(message):
+    logger.info('Пользователь ввел: %s', message.text)
+
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
@@ -226,12 +230,14 @@ def add_numbers(message):
     
     bot.send_message(message.chat.id, NUMBERS_ADDED, reply_markup=common_markup)
 
+    logger.info("Отработало")
 
 @bot.message_handler(commands=['add_numbers'])
 def add_numbers_handler(message):
     msg = bot.send_message(message.chat.id, INPUT_NUMBERS, reply_markup=hide_markup, parse_mode="HTML")
     bot.register_next_step_handler(msg, add_numbers)
 
+    logger.info("Отработало")
 
 @bot.message_handler(commands=['list'])
 def number_list(message):
@@ -245,6 +251,7 @@ def number_list(message):
     
     bot.send_message(message.chat.id, str(numbers), reply_markup=common_markup)
 
+    logger.info("Отработало")
 
 def know(message):
     data = json.load_s3("data.json")
@@ -257,6 +264,8 @@ def know(message):
     
     json.dump_s3(data, "data.json")
 
+    logger.info("Отработало")
+
 def dont_know(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
@@ -268,9 +277,12 @@ def dont_know(message):
     
     json.dump_s3(data, "data.json")
 
+    logger.info("Отработало")
+
 
 @bot.message_handler(content_types='text')
 def message_reply(message):
+    logger.info('Пользователь ввел: %s', message.text)
     if message.text == RESET_LEARNING:
         start_learning(message)
     elif message.text == LEARN:
