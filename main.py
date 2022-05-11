@@ -131,9 +131,13 @@ def getNumberList(numberString):
     for range_ in ranges:
         range_ = range_.split('-')
         if len(range_) == 1:
+            if not isNumber(range_[0]):
+                raise ValueError("В вводе содержится не число")
             numberList.append(int(range_[0]))
         else:
             for n in range(int(range_[0]), int(range_[1]) + 1):
+                if not isNumber(range_[0]) or not isNumber(range_[1]):
+                    raise ValueError("В вводе содержится не число")
                 numberList.append(n)
     return numberList
 
@@ -216,11 +220,21 @@ def learn(message):
 def add_numbers(message):
     logger.info('Пользователь ввел: %s', message.text)
 
+    if message.text == '/start' or message.text == '/help':
+        say_welcome(message)
+        return
+
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
     # Добавляем числа в нулевую категорию и убираем повторы
-    data[chatId]["numbers"]["0"] += getNumberList(message.text)
+    try:
+        data[chatId]["numbers"]["0"] += getNumberList(message.text)
+    except:
+        logger.exception("В вводе содержится не число")
+        bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+        return
+    
     category_0_set = set(data[chatId]["numbers"]["0"])
     for category in ["1", "2", "3", "4", "5", "6"]:
         category_0_set -= set(data[chatId]["numbers"][category])
