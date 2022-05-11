@@ -141,6 +141,27 @@ def getNumberList(numberString):
                 numberList.append(n)
     return numberList
 
+def numberList2String(numbers):
+    last_number = -2
+    numbers_string = ""
+    first_num = False
+    for number in numbers:
+        if number != last_number + 1:
+            if numbers_string != "":
+                if not first_num:
+                    numbers_string += str(last_number)
+                numbers_string += ", "
+            numbers_string += str(number)
+            first_num = True
+            
+        else:
+            if first_num:
+                numbers_string += " - "
+                first_num = False
+        last_number = number
+    if not first_num:
+        numbers_string += str(last_number)
+    return numbers_string
 
 def resetNumbers(chatId):
     data = json.load_s3("data.json")
@@ -261,10 +282,12 @@ def number_list(message):
     numbers = []
     for category in ["0", "1", "2", "3", "4", "5", "6"]:
         numbers += data[chatId]["numbers"][category]
-    numbers.sort()
     
-    bot.send_message(message.chat.id, str(numbers), reply_markup=common_markup)
-
+    numbers.sort()
+    numbers_str = numberList2String(numbers)
+    
+    bot.send_message(message.chat.id, numbers_str, reply_markup=common_markup)
+    
     logger.info("Отработало")
 
 def know(message):
