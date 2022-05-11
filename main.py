@@ -141,6 +141,27 @@ def getNumberList(numberString):
                 numberList.append(n)
     return numberList
 
+def numberList2String(numbers):
+    last_number = -2
+    numbers_string = ""
+    first_num = False
+    for number in numbers:
+        if number != last_number + 1:
+            if numbers_string != "":
+                if not first_num:
+                    numbers_string += str(last_number)
+                numbers_string += ", "
+            numbers_string += str(number)
+            first_num = True
+            
+        else:
+            if first_num:
+                numbers_string += " - "
+                first_num = False
+        last_number = number
+    if not first_num:
+        numbers_string += str(last_number)
+    return numbers_string
 
 def resetNumbers(chatId):
     data = json.load_s3("data.json")
@@ -255,16 +276,26 @@ def add_numbers_handler(message):
 
 @bot.message_handler(commands=['list'])
 def number_list(message):
+    logger.debug("вызов number_list")
+
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
+    
     numbers = []
     for category in ["0", "1", "2", "3", "4", "5", "6"]:
+        logger.debug("numbers: %s", str(numbers))
         numbers += data[chatId]["numbers"][category]
+    logger.debug("начинаем сортировку")
     numbers.sort()
+    numbers_str = numberList2String(numbers)
+    logger.debug("закончили сортировку")
     
-    bot.send_message(message.chat.id, str(numbers), reply_markup=common_markup)
-
+    logger.debug("собираемся отправить список чисел")
+    logger.debug("длина сообщения: %d", len(numbers_str))
+    bot.send_message(message.chat.id, numbers_str, reply_markup=common_markup)
+    logger.debug("отправили список числа")
+    
     logger.info("Отработало")
 
 def know(message):
