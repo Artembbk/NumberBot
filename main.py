@@ -135,13 +135,19 @@ def getNumberList(numberString):
                 raise ValueError("В вводе содержится не число")
             numberList.append(int(range_[0]))
         else:
+            if int(range_[0]) > int(range_[1]):
+                range_[0], range_[1] = range_[1], range_[0]
             for n in range(int(range_[0]), int(range_[1]) + 1):
                 if not isNumber(range_[0]) or not isNumber(range_[1]):
                     raise ValueError("В вводе содержится не число")
+                
+                    
                 numberList.append(n)
     return numberList
 
 def numberList2String(numbers):
+    if not numbers:
+        return ""
     last_number = -2
     numbers_string = ""
     first_num = False
@@ -282,13 +288,15 @@ def number_list(message):
     
     
     numbers = []
-    for category in ["0", "1", "2", "3", "4", "5", "6"]:
+    for category in ["0", "1", "2", "3", "4", "5"]:
         numbers += data[chatId]["numbers"][category]
     
     numbers.sort()
     numbers_str = numberList2String(numbers)
-    
-    bot.send_message(message.chat.id, numbers_str, reply_markup=common_markup)
+    if numbers_str != "":
+        bot.send_message(message.chat.id, numbers_str, reply_markup=common_markup)
+    else:
+        bot.send_message(message.chat.id, "Вы ничего не учите", reply_markup=common_markup)
     
     logger.info("Отработало")
 
