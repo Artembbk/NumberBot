@@ -7,8 +7,18 @@ import json
 from io import BytesIO
 from gtts import gTTS
 from telebot import types
+import logging
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+root_handler = logging.getLogger().handlers[0]
+root_handler.setFormatter(logging.Formatter(
+	"%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+))
+
 
 
 # ---------------- Текст ----------------------------------------
@@ -143,6 +153,11 @@ def getFpOfSynthesizedNumber(number):
 
 @bot.message_handler(commands=['help', 'start'])
 def say_welcome(message):
+    logger.debug('debug message')
+    logger.info('info message')
+    logger.warning('warn message')
+    logger.error('error message')
+    logger.critical('critical message')
     bot.send_message(message.chat.id, START_MESSAGE, reply_markup=common_markup, parse_mode="HTML")
 
 

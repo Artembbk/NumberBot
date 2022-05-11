@@ -4,7 +4,6 @@ from main import bot
 
 
 def handler(event, _):
-    print(event['body'])
     message = telebot.types.Update.de_json(event['body'])
     bot.process_new_updates([message])
     return {
