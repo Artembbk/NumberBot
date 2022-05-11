@@ -276,8 +276,10 @@ def add_numbers_handler(message):
 
 @bot.message_handler(commands=['list'])
 def number_list(message):
+
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
+    
     
     numbers = []
     for category in ["0", "1", "2", "3", "4", "5", "6"]:
