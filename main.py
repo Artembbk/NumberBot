@@ -78,7 +78,21 @@ def create_common_markup(one_time=False):
     return markup
 
 
-def create_learn_markup():
+def create_learn_markup_dont_know():
+    # Создаем клавиатуру
+    markup = types.ReplyKeyboardMarkup()
+
+    # Создаем кнопки
+    learn_btn = types.KeyboardButton("Учить дальше")
+    dont_know_btn = types.KeyboardButton(DONT_KNOW)
+    stop_learn_btn = types.KeyboardButton(END)
+    
+    # Добавляем кнопки в клавиатуру в два ряда
+    markup.add(dont_know_btn)
+    markup.add(stop_learn_btn)
+    return markup
+
+def create_learn_markup_continue():
     # Создаем клавиатуру
     markup = types.ReplyKeyboardMarkup()
 
@@ -89,13 +103,14 @@ def create_learn_markup():
     
     # Добавляем кнопки в клавиатуру в два ряда
     markup.add(learn_btn)
-    markup.add(dont_know_btn)
     markup.add(stop_learn_btn)
     return markup
 
+
 # Создаем клавиатуры и сохраняем
 common_markup = create_common_markup()
-learn_markup = create_learn_markup()
+learn_markup_continue = create_learn_markup_continue()
+learn_markup_dont_know = create_learn_markup_dont_know()
 # Эту клавиатуру указываем чтобы спрятать текущую и показать обычную
 hide_markup = types.ReplyKeyboardRemove()
 
@@ -263,7 +278,7 @@ def learn(message):
     
     json.dump_s3(data, "data.json")
     
-    msg = bot.send_message(message.chat.id, number, reply_markup=learn_markup)
+    msg = bot.send_message(message.chat.id, number, reply_markup=learn_markup_dont_know)
     
     # with open(file_name, "rb") as voice:
     #     bot.send_voice(message.chat.id, voice)
@@ -339,7 +354,7 @@ def know(message):
     
     json.dump_s3(data, "data.json")
 
-    bot.send_message(message.chat.id, "Правильно!", reply_markup=learn_markup)
+    bot.send_message(message.chat.id, "Правильно!", reply_markup=learn_markup_continue)
 
     logger.info("Отработало")
 
@@ -353,12 +368,6 @@ def dont_know(message):
     data[chatId]["numbers"][str(max(int(last_category) - 1, 0))].append(last_number)
     
     json.dump_s3(data, "data.json")
-
-    bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup)
-    
-    file_name = getFpOfSynthesizedNumber(last_number)
-    with open(file_name, "rb") as voice:
-        bot.send_voice(message.chat.id, voice)
 
     logger.info("Отработало")
 
@@ -389,7 +398,7 @@ def handle_answer(message):
             data = json.load_s3("data.json")
             chatId = str(message.chat.id)
             last_number = data[chatId]["last_number"]
-            bot.send_message(message.chat.id, "Ну раз не знаешь, то вот -- запоминай", reply_markup=learn_markup)
+            bot.send_message(message.chat.id, "Ну раз не знаешь, то вот -- запоминай", reply_markup=learn_markup_continue)
             file_name = getFpOfSynthesizedNumber(last_number)
             with open(file_name, "rb") as voice:
                 bot.send_voice(message.chat.id, voice)
@@ -419,7 +428,7 @@ def handle_answer(message):
         know(message)
     else:
         dont_know(message)
-        bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup)
+        bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup_continue)
         file_name = getFpOfSynthesizedNumber(last_number)
         with open(file_name, "rb") as voice:
             bot.send_voice(message.chat.id, voice)
