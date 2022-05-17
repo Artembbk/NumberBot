@@ -178,19 +178,18 @@ def resetNumbers(chatId):
 
 
 def getFpOfSynthesizedNumber(number):
-    try:
-        tts = gTTS(text=str(number), lang="en")
-        
-        file_name_mp3 = "/tmp/" + str(number) + ".mp3"
-        tts.save(file_name_mp3)
+    tts = gTTS(text=str(number), lang="en")
+    
+    file_name_mp3 = "/tmp/" + str(number) + ".mp3"
+    tts.save(file_name_mp3)
 
-        file_name_opus = "/tmp/" + str(number) + ".opus"
-        sound = AudioSegment.from_mp3(file_name_mp3)
-        sound.export(file_name_opus, format="opus")
+    file_name_opus = "/tmp/" + str(number) + ".opus"
+    sound = AudioSegment.from_mp3(file_name_mp3)
+    sound.export(file_name_opus, format="opus")
 
-        return file_name_opus
-    except Exception as e:
-        print("Ощибка:", e)
+    return file_name_opus
+
+
 # --------------------- Бот ---------------------
 
 @bot.message_handler(commands=['help', 'start'])
