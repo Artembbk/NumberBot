@@ -8,6 +8,7 @@ from io import BytesIO
 from gtts import gTTS
 from telebot import types
 import logging
+from pydub import AudioSegment
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
@@ -177,11 +178,19 @@ def resetNumbers(chatId):
 
 
 def getFpOfSynthesizedNumber(number):
-    tts = gTTS(text=str(number), lang="en")
-    fp = BytesIO()
-    tts.write_to_fp(fp)
-    fp.seek(0)
-    return fp
+    try:
+        tts = gTTS(text=str(number), lang="en")
+        
+        file_name_mp3 = "/tmp/" + str(number) + ".mp3"
+        tts.save(file_name_mp3)
+
+        file_name_ogg = "/tmp/" + str(number) + ".ogg"
+        sound = AudioSegment.from_mp3(file_name_mp3)
+        sound.export(file_name_ogg, format="ogg")
+
+        return file_name_ogg
+    except Exception as e:
+        print("Ощибка:", e)
 # --------------------- Бот ---------------------
 
 @bot.message_handler(commands=['help', 'start'])
@@ -228,7 +237,7 @@ def learn(message):
     number = numbers[randint(0, len(numbers) - 1)]
 
     # Озвучиваем число
-    fp = getFpOfSynthesizedNumber(number)
+    file_name = getFpOfSynthesizedNumber(number)
 
     # Сохраняем число и категорию чтобы после 
     # ответа знаю/не знаю переместить нужное число
@@ -239,8 +248,8 @@ def learn(message):
     json.dump_s3(data, "data.json")
     
     bot.send_message(message.chat.id, number, reply_markup=learn_markup)
-    bot.send_voice(message.chat.id, fp)
-
+    with open(file_name, "rb") as voice:
+        bot.send_voice(message.chat.id, voice)
     logger.info("Отработало")
 
 

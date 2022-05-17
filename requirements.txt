@@ -1,3 +1,4 @@
 pyTelegramBotAPI
 boto3
 gtts
+pydub
