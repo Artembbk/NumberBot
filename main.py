@@ -354,6 +354,12 @@ def dont_know(message):
     
     json.dump_s3(data, "data.json")
 
+    bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup)
+    
+    file_name = getFpOfSynthesizedNumber(last_number)
+    with open(file_name, "rb") as voice:
+        bot.send_voice(message.chat.id, voice)
+
     logger.info("Отработало")
 
 
