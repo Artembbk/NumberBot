@@ -184,11 +184,11 @@ def getFpOfSynthesizedNumber(number):
         file_name_mp3 = "/tmp/" + str(number) + ".mp3"
         tts.save(file_name_mp3)
 
-        file_name_ogg = "/tmp/" + str(number) + ".ogg"
+        file_name_opus = "/tmp/" + str(number) + ".opus"
         sound = AudioSegment.from_mp3(file_name_mp3)
-        sound.export(file_name_ogg, format="ogg")
+        sound.export(file_name_opus, format="opus")
 
-        return file_name_ogg
+        return file_name_opus
     except Exception as e:
         print("Ощибка:", e)
 # --------------------- Бот ---------------------
