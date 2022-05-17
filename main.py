@@ -9,6 +9,7 @@ from gtts import gTTS
 from telebot import types
 import logging
 from pydub import AudioSegment
+import speech_recognition as sr
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
@@ -82,12 +83,13 @@ def create_learn_markup():
     markup = types.ReplyKeyboardMarkup()
 
     # Создаем кнопки
-    know_btn = types.KeyboardButton(KNOW)
+    learn_btn = types.KeyboardButton("Учить дальше")
     dont_know_btn = types.KeyboardButton(DONT_KNOW)
     stop_learn_btn = types.KeyboardButton(END)
     
     # Добавляем кнопки в клавиатуру в два ряда
-    markup.add(know_btn, dont_know_btn)
+    markup.add(learn_btn)
+    markup.add(dont_know_btn)
     markup.add(stop_learn_btn)
     return markup
 
@@ -190,6 +192,21 @@ def getFpOfSynthesizedNumber(number):
     return file_name_opus
 
 
+r = sr.Recognizer()
+
+def recognise(filename):
+    with sr.AudioFile(filename) as source:
+        audio_text = r.listen(source)
+        try:
+            text = r.recognize_google(audio_text, language="en-GB")
+            print('Converting audio transcripts into text ...')
+            print(text)
+            return text
+        except:
+            print('Sorry.. run again...')
+            return "Sorry.. run again..."
+
+
 # --------------------- Бот ---------------------
 
 @bot.message_handler(commands=['help', 'start'])
@@ -236,7 +253,7 @@ def learn(message):
     number = numbers[randint(0, len(numbers) - 1)]
 
     # Озвучиваем число
-    file_name = getFpOfSynthesizedNumber(number)
+    # file_name = getFpOfSynthesizedNumber(number)
 
     # Сохраняем число и категорию чтобы после 
     # ответа знаю/не знаю переместить нужное число
@@ -246,9 +263,12 @@ def learn(message):
     
     json.dump_s3(data, "data.json")
     
-    bot.send_message(message.chat.id, number, reply_markup=learn_markup)
-    with open(file_name, "rb") as voice:
-        bot.send_voice(message.chat.id, voice)
+    msg = bot.send_message(message.chat.id, number, reply_markup=learn_markup)
+    
+    # with open(file_name, "rb") as voice:
+    #     bot.send_voice(message.chat.id, voice)
+
+    bot.register_next_step_handler(msg, handle_answer)
     logger.info("Отработало")
 
 
@@ -319,6 +339,8 @@ def know(message):
     
     json.dump_s3(data, "data.json")
 
+    bot.send_message(message.chat.id, "Правильно!", reply_markup=learn_markup)
+
     logger.info("Отработало")
 
 def dont_know(message):
@@ -340,23 +362,65 @@ def message_reply(message):
     logger.info('Пользователь ввел: %s', message.text)
     if message.text == RESET_LEARNING:
         start_learning(message)
-    elif message.text == LEARN:
+    elif message.text == LEARN or message.text == "Учить дальше":
         learn(message)
     elif message.text == ADD_NUMBERS:
         add_numbers_handler(message)
     elif message.text == LIST:
         number_list(message)
-    elif message.text == KNOW:
-        know(message)
-        learn(message)
-    elif message.text == DONT_KNOW:
-        dont_know(message)
-        learn(message)
     elif message.text == END:
         bot.send_message(message.chat.id, END_BACK_TO_MENU, reply_markup=common_markup)
     else:
         bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
 
+
+def handle_answer(message):
+    if message.text:
+        if message.text == END:
+            bot.send_message(message.chat.id, END_BACK_TO_MENU, reply_markup=common_markup)
+        elif message.text == DONT_KNOW:
+            dont_know(message)
+            data = json.load_s3("data.json")
+            chatId = str(message.chat.id)
+            last_number = data[chatId]["last_number"]
+            bot.send_message(message.chat.id, "Ну раз не знаешь, то вот -- запоминай", reply_markup=learn_markup)
+            file_name = getFpOfSynthesizedNumber(last_number)
+            with open(file_name, "rb") as voice:
+                bot.send_voice(message.chat.id, voice)
+        else:
+            bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+        return
+
+    filename = "num"
+    file_name_full="/tmp/"+filename+".ogg"
+    file_name_full_converted="/tmp/"+filename+".wav"
+    file_info = bot.get_file(message.voice.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    with open(file_name_full, 'wb') as new_file:
+        new_file.write(downloaded_file)
+    
+
+    sound = AudioSegment.from_ogg(file_name_full)
+    sound.export(file_name_full_converted, format="wav")
+
+    text=recognise(file_name_full_converted)
+    
+    data = json.load_s3("data.json")
+    chatId = str(message.chat.id)
+    
+    last_number = data[chatId]["last_number"]
+    if (text == str(last_number)):
+        know(message)
+    else:
+        dont_know(message)
+        bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup)
+        file_name = getFpOfSynthesizedNumber(last_number)
+        with open(file_name, "rb") as voice:
+            bot.send_voice(message.chat.id, voice)
+
+@bot.message_handler(content_types=['voice'])
+def voice_processing(message):
+    bot.send_message(message.chat.id, "Не время для голосового", reply_markup=common_markup)
 
 # ---------------- local testing ----------------
 if __name__ == '__main__':
