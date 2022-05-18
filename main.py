@@ -267,9 +267,6 @@ def learn(message):
     numbers = data[chatId]["numbers"][category]
     number = numbers[randint(0, len(numbers) - 1)]
 
-    # Озвучиваем число
-    # file_name = getFpOfSynthesizedNumber(number)
-
     # Сохраняем число и категорию чтобы после 
     # ответа знаю/не знаю переместить нужное число
     # в нужную категорию
@@ -280,9 +277,6 @@ def learn(message):
     
     msg = bot.send_message(message.chat.id, number, reply_markup=learn_markup_dont_know)
     
-    # with open(file_name, "rb") as voice:
-    #     bot.send_voice(message.chat.id, voice)
-
     bot.register_next_step_handler(msg, handle_answer)
     logger.info("Отработало")
 
@@ -343,7 +337,7 @@ def number_list(message):
     
     logger.info("Отработало")
 
-def know(message):
+def up_category(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
@@ -354,14 +348,18 @@ def know(message):
     
     json.dump_s3(data, "data.json")
 
-    bot.send_message(message.chat.id, "Правильно!", reply_markup=learn_markup_continue)
-
     logger.info("Отработало")
 
-def dont_know(message):
+
+def know(message):
+    up_category(message)
+    bot.send_message(message.chat.id, "Правильно!", reply_markup=learn_markup_continue)
+
+
+def to_down_category(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
-    
+
     last_category = data[chatId]["last_category"]
     last_number = data[chatId]["last_number"]
     data[chatId]["numbers"][last_category].remove(last_number)
@@ -370,6 +368,17 @@ def dont_know(message):
     json.dump_s3(data, "data.json")
 
     logger.info("Отработало")
+
+
+def dont_know(message, message_for_user):
+    to_down_category(message)
+    chatId = str(message.chat.id)
+    data = json.load_s3("data.json")
+    last_number = data[chatId]["last_number"]
+    bot.send_message(message.chat.id, message_for_user, reply_markup=learn_markup_continue)
+    file_name = getFpOfSynthesizedNumber(last_number)
+    with open(file_name, "rb") as voice:
+        bot.send_voice(message.chat.id, voice)
 
 
 @bot.message_handler(content_types='text')
@@ -394,14 +403,7 @@ def handle_answer(message):
         if message.text == END:
             bot.send_message(message.chat.id, END_BACK_TO_MENU, reply_markup=common_markup)
         elif message.text == DONT_KNOW:
-            dont_know(message)
-            data = json.load_s3("data.json")
-            chatId = str(message.chat.id)
-            last_number = data[chatId]["last_number"]
-            bot.send_message(message.chat.id, "Ну раз не знаешь, то вот -- запоминай", reply_markup=learn_markup_continue)
-            file_name = getFpOfSynthesizedNumber(last_number)
-            with open(file_name, "rb") as voice:
-                bot.send_voice(message.chat.id, voice)
+            dont_know(message, "Ну раз не знаешь, то вот -- запоминай")
         else:
             bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
         return
@@ -427,11 +429,7 @@ def handle_answer(message):
     if (text == str(last_number)):
         know(message)
     else:
-        dont_know(message)
-        bot.send_message(message.chat.id, "Не правильно!", reply_markup=learn_markup_continue)
-        file_name = getFpOfSynthesizedNumber(last_number)
-        with open(file_name, "rb") as voice:
-            bot.send_voice(message.chat.id, voice)
+        dont_know(message, "Не правильно!")
 
 @bot.message_handler(content_types=['voice'])
 def voice_processing(message):
