@@ -1,6 +1,7 @@
 import os
 import random
 from random import randint
+from re import M
 import telebot
 import boto3
 import json
@@ -376,9 +377,32 @@ def dont_know(message, message_for_user):
     data = json.load_s3("data.json")
     last_number = data[chatId]["last_number"]
     bot.send_message(message.chat.id, message_for_user, reply_markup=learn_markup_continue)
-    file_name = getFpOfSynthesizedNumber(last_number)
-    with open(file_name, "rb") as voice:
+    
+    send_voice(message, last_number)
+
+    # file_name = getFpOfSynthesizedNumber(last_number)
+    # with open(file_name, "rb") as voice:
+    #     bot.send_voice(message.chat.id, voice)
+
+
+def send_voice(message, number):
+    file_name =  str(number) + ".opus"
+    file_name_saved = '/tmp/' + file_name
+    
+
+    success = True
+    try:
+        s3.download_file(file_name, file_name_saved)
+    except:
+        success = False
+
+    if not success:
+        getFpOfSynthesizedNumber(number)
+        s3.upload_file(file_name_saved, file_name)
+
+    with open(file_name_saved, "rb") as voice:
         bot.send_voice(message.chat.id, voice)
+
 
 
 @bot.message_handler(content_types='text')
