@@ -1,3 +1,4 @@
+from curses.ascii import isdigit
 import os
 import random
 from random import randint
@@ -256,7 +257,6 @@ def recognise(filename, language):
         except:
             print('Sorry.. run again...')
             return "Sorry.. run again..."
-    logger.info("Отработало")
 
 
 # --------------------- Бот ---------------------
@@ -296,14 +296,15 @@ def change_mode2(message):
     logger.info("Отработало")
 
 
-def learn(message):
+def choose_number(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
+    mode = data[chatId]["mode"]
     
     # Ищем непустые категории
     not_empty_categories = []
     for category in ["0", "1", "2", "3", "4", "5"]:
-        if data[chatId]["numbers"][category]:
+        if data[chatId][mode][category]:
             not_empty_categories.append(category)
     if not not_empty_categories:
         bot.send_message(message.chat.id, NO_MORE_NUMBERS, reply_markup=common_markup)
@@ -318,7 +319,7 @@ def learn(message):
     category = random.choices(not_empty_categories, weights=weights, k=1)[0]
     
     # Выбираем число из выбранной категории
-    numbers = data[chatId]["numbers"][category]
+    numbers = data[chatId][mode][category]
     number = numbers[randint(0, len(numbers) - 1)]
 
     # Сохраняем число и категорию чтобы после 
@@ -328,6 +329,12 @@ def learn(message):
     data[chatId]["last_category"] = category
     
     json.dump_s3(data, "data.json")
+
+    return number
+
+
+def learn(message):
+    number = choose_number(message)
     
     msg = bot.send_message(message.chat.id, number, reply_markup=learn_markup_dont_know)
     
@@ -336,7 +343,10 @@ def learn(message):
 
 
 def learn_reversed(message):
-    return
+    number = choose_number(message)
+    send_voice(message, number)
+    msg=bot.send_message(message.chat.id, "Что это за число?", reply_markup=hide_markup)
+    bot.register_next_step_handler(msg, handle_answer_reversed)
 
 
 def add_numbers(message):
@@ -461,7 +471,7 @@ def send_voice(message, number):
         s3.upload_file(file_name_saved, file_name)
 
     with open(file_name_saved, "rb") as voice:
-        bot.send_voice(message.chat.id, voice)
+        return bot.send_voice(message.chat.id, voice)
     logger.info("Отработало")
 
 
@@ -527,6 +537,19 @@ def handle_answer(message):
     else:
         dont_know(message, "Не правильно!")
     logger.info("Отработало")
+
+
+def handle_answer_reversed(message):
+    data = json.load_s3("data.json")
+    answer = message.text
+    if isNumber(answer):
+        if int(answer) == data[str(message.chat.id)]["last_number"]:
+            know(message)
+        else:
+            dont_know(message, "Не правильно")
+    else:
+        bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+
 
 @bot.message_handler(content_types=['voice'])
 def voice_processing(message):
