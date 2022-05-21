@@ -33,6 +33,11 @@ languages = {
     "Немецкий": "de"
 }
 
+modes = {
+    "По числу записать голосовое": "numbers",
+    "По голосовому написать число": "numbers_reversed",
+}
+
 # ---------------- Текст ----------------------------------------
 
 RESET_LEARNING = 'Учить числа с нуля'
@@ -80,10 +85,11 @@ def create_common_markup(one_time=False):
     learn_btn = types.KeyboardButton(LEARN)
     add_numbers_btn = types.KeyboardButton(ADD_NUMBERS)
     number_list_btn = types.KeyboardButton(LIST)
+    change_mode_btn = types.KeyboardButton("Поменять режим изучения")
     
     # Добавляем кнопки в клавиатуру в два ряда
     markup.add(start_learning_btn, learn_btn)
-    markup.add(add_numbers_btn, number_list_btn)
+    markup.add(add_numbers_btn, number_list_btn, change_mode_btn)
     return markup
 
 
@@ -126,11 +132,22 @@ def create_language_markup():
     markup.add(english_btn, french_btn, german_btn)
     return markup
 
+
+def create_mode_markup():
+    markup = types.ReplyKeyboardMarkup()
+
+    num_to_voice_btn = types.KeyboardButton("По числу записать голосовое")
+    voice_to_num_btn = types.KeyboardButton("По голосовому написать число")
+
+    markup.add(voice_to_num_btn, num_to_voice_btn)
+    return markup
+
 # Создаем клавиатуры и сохраняем
 common_markup = create_common_markup()
 learn_markup_continue = create_learn_markup_continue()
 learn_markup_dont_know = create_learn_markup_dont_know()
 language_markup = create_language_markup()
+mode_markup = create_mode_markup()
 # Эту клавиатуру указываем чтобы спрятать текущую и показать обычную
 hide_markup = types.ReplyKeyboardRemove()
 
@@ -209,23 +226,22 @@ def numberList2String(numbers):
 
 def resetNumbers(chatId, language):
     data = json.load_s3("data.json")
-    data[chatId] = {"numbers": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []}, "last_number": 0, "last_category": "0", "language": language}
+    data[chatId] = {"numbers": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []},
+                    "numbers_reversed": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []},
+                    "last_number": 0, "last_category": "0", "language": language, "mode": modes["По числу записать голосовое"]}
 
     json.dump_s3(data, "data.json")
+    logger.info("Отработало")
 
 
-def synthesizeNumber(number, language):
+def synthesizeNumber(number, language, filename):
     tts = gTTS(text=str(number), lang=language)
     
-    file_name_mp3 = "/tmp/" + str(number) + "-" + language + ".mp3"
-    tts.save(file_name_mp3)
-
-    file_name_opus = "/tmp/" + str(number) + "-" + language + ".opus"
-    sound = AudioSegment.from_mp3(file_name_mp3)
-    sound.export(file_name_opus, format="opus")
-
-    return file_name_opus
-
+    tts.save("/tmp/num.mp3");
+    
+    sound = AudioSegment.from_mp3("/tmp/num.mp3")
+    sound.export(filename, format="opus")
+    logger.info("Отработало")
 
 r = sr.Recognizer()
 
@@ -240,6 +256,7 @@ def recognise(filename, language):
         except:
             print('Sorry.. run again...')
             return "Sorry.. run again..."
+    logger.info("Отработало")
 
 
 # --------------------- Бот ---------------------
@@ -265,8 +282,21 @@ def start_learning2(message):
     logger.info("Отработало")
 
 
+def change_mode(message):
+    msg = bot.send_message(message.chat.id, "Выбери режим обучения", reply_markup=mode_markup)
+    bot.register_next_step_handler(msg, change_mode2)
+    logger.info("Отработало")
+
+def change_mode2(message):
+    data = json.load_s3("data.json")
+    data[str(message.chat.id)]["mode"] = modes[message.text]
+    json.dump_s3(data, "data.json")
+
+    bot.send_message(message.chat.id, "Режим обучения успешно изменен", reply_markup=common_markup)
+    logger.info("Отработало")
+
+
 def learn(message):
-    
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
@@ -305,6 +335,10 @@ def learn(message):
     logger.info("Отработало")
 
 
+def learn_reversed(message):
+    return
+
+
 def add_numbers(message):
     logger.info('Пользователь ввел: %s', message.text)
 
@@ -315,18 +349,19 @@ def add_numbers(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
     
-    # Добавляем числа в нулевую категорию и убираем повторы
-    try:
-        data[chatId]["numbers"]["0"] += getNumberList(message.text)
-    except:
-        logger.exception("В вводе содержится не число")
-        bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
-        return
-    
-    category_0_set = set(data[chatId]["numbers"]["0"])
-    for category in ["1", "2", "3", "4", "5", "6"]:
-        category_0_set -= set(data[chatId]["numbers"][category])
-    data[chatId]["numbers"]["0"] = list(category_0_set)
+    for numbers in ["numbers", "numbers_reversed"]:
+        # Добавляем числа в нулевую категорию и убираем повторы
+        try:
+            data[chatId][numbers]["0"] += getNumberList(message.text)
+        except:
+            logger.exception("В вводе содержится не число")
+            bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+            return
+        
+        category_0_set = set(data[chatId][numbers]["0"])
+        for category in ["1", "2", "3", "4", "5", "6"]:
+            category_0_set -= set(data[chatId][numbers][category])
+        data[chatId][numbers]["0"] = list(category_0_set)
     
     json.dump_s3(data, "data.json")
     
@@ -347,7 +382,7 @@ def number_list(message):
     
     
     numbers = []
-    for category in ["0", "1", "2", "3", "4", "5"]:
+    for category in ["0", "1", "2", "3", "4", "5", "6"]:
         numbers += data[chatId]["numbers"][category]
     
     numbers.sort()
@@ -400,7 +435,7 @@ def dont_know(message, message_for_user):
     bot.send_message(message.chat.id, message_for_user, reply_markup=learn_markup_continue)
     
     send_voice(message, last_number)
-
+    logger.info("Отработало")
     # file_name = getFpOfSynthesizedNumber(last_number)
     # with open(file_name, "rb") as voice:
     #     bot.send_voice(message.chat.id, voice)
@@ -422,11 +457,12 @@ def send_voice(message, number):
         success = False
 
     if not success:
-        synthesizeNumber(number, language)
+        synthesizeNumber(number, language, file_name_saved)
         s3.upload_file(file_name_saved, file_name)
 
     with open(file_name_saved, "rb") as voice:
         bot.send_voice(message.chat.id, voice)
+    logger.info("Отработало")
 
 
 
@@ -436,15 +472,22 @@ def message_reply(message):
     if message.text == RESET_LEARNING:
         start_learning(message)
     elif message.text == LEARN or message.text == "Учить дальше":
-        learn(message)
+        data = json.load_s3("data.json")
+        if data[str(message.chat.id)]["mode"] == modes["По числу записать голосовое"]:
+            learn(message)
+        elif data[str(message.chat.id)]["mode"] == modes["По голосовому написать число"]:
+            learn_reversed(message)
     elif message.text == ADD_NUMBERS:
         add_numbers_handler(message)
     elif message.text == LIST:
         number_list(message)
+    elif message.text == "Поменять режим изучения":
+        change_mode(message)
     elif message.text == END:
         bot.send_message(message.chat.id, END_BACK_TO_MENU, reply_markup=common_markup)
     else:
         bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+    logger.info("Отработало")
 
 
 def handle_answer(message):
@@ -455,6 +498,7 @@ def handle_answer(message):
             dont_know(message, "Ну раз не знаешь, то вот -- запоминай")
         else:
             bot.send_message(message.chat.id, INVALID_INPUT, reply_markup=common_markup)
+        logger.info("Отработало")
         return
 
     filename = "num"
@@ -482,10 +526,12 @@ def handle_answer(message):
         know(message)
     else:
         dont_know(message, "Не правильно!")
+    logger.info("Отработало")
 
 @bot.message_handler(content_types=['voice'])
 def voice_processing(message):
     bot.send_message(message.chat.id, "Не время для голосового", reply_markup=common_markup)
+    logger.info("Отработало")
 
 # ---------------- local testing ----------------
 if __name__ == '__main__':
