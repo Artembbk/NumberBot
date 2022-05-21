@@ -11,6 +11,7 @@ from telebot import types
 import logging
 from pydub import AudioSegment
 import speech_recognition as sr
+from enum import Enum
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
 
@@ -25,6 +26,12 @@ root_handler.setFormatter(logging.Formatter(
 	"%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 ))
 
+
+languages = {
+    "Английский": "en",
+    "Французский": "fr",
+    "Немецкий": "de"
+}
 
 # ---------------- Текст ----------------------------------------
 
@@ -109,10 +116,21 @@ def create_learn_markup_continue():
     return markup
 
 
+def create_language_markup():
+    markup = types.ReplyKeyboardMarkup()
+
+    english_btn = types.KeyboardButton("Английский")
+    french_btn = types.KeyboardButton("Французский")
+    german_btn = types.KeyboardButton("Немецкий")
+
+    markup.add(english_btn, french_btn, german_btn)
+    return markup
+
 # Создаем клавиатуры и сохраняем
 common_markup = create_common_markup()
 learn_markup_continue = create_learn_markup_continue()
 learn_markup_dont_know = create_learn_markup_dont_know()
+language_markup = create_language_markup()
 # Эту клавиатуру указываем чтобы спрятать текущую и показать обычную
 hide_markup = types.ReplyKeyboardRemove()
 
@@ -189,20 +207,20 @@ def numberList2String(numbers):
         numbers_string += str(last_number)
     return numbers_string
 
-def resetNumbers(chatId):
+def resetNumbers(chatId, language):
     data = json.load_s3("data.json")
-    data[str(chatId)] = {"numbers": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []}, "last_number": 0, "last_category": "0"}
+    data[chatId] = {"numbers": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []}, "last_number": 0, "last_category": "0", "language": language}
 
     json.dump_s3(data, "data.json")
 
 
-def getFpOfSynthesizedNumber(number):
-    tts = gTTS(text=str(number), lang="en")
+def synthesizeNumber(number, language):
+    tts = gTTS(text=str(number), lang=language)
     
-    file_name_mp3 = "/tmp/" + str(number) + ".mp3"
+    file_name_mp3 = "/tmp/" + str(number) + "-" + language + ".mp3"
     tts.save(file_name_mp3)
 
-    file_name_opus = "/tmp/" + str(number) + ".opus"
+    file_name_opus = "/tmp/" + str(number) + "-" + language + ".opus"
     sound = AudioSegment.from_mp3(file_name_mp3)
     sound.export(file_name_opus, format="opus")
 
@@ -211,11 +229,11 @@ def getFpOfSynthesizedNumber(number):
 
 r = sr.Recognizer()
 
-def recognise(filename):
+def recognise(filename, language):
     with sr.AudioFile(filename) as source:
         audio_text = r.listen(source)
         try:
-            text = r.recognize_google(audio_text, language="en-GB")
+            text = r.recognize_google(audio_text, language=language)
             print('Converting audio transcripts into text ...')
             print(text)
             return text
@@ -233,16 +251,20 @@ def say_welcome(message):
     logger.info("Отработало")
 
 
-@bot.message_handler(commands=['start_learning'])
 def start_learning(message):
+    msg = bot.send_message(message.chat.id, "Выбери язык", reply_markup=language_markup, parse_mode="HTML")
+    bot.register_next_step_handler(msg, start_learning2)
+
+
+def start_learning2(message):
     msg = bot.send_message(message.chat.id, INPUT_NUMBERS, reply_markup=hide_markup, parse_mode="HTML")
-    resetNumbers(message.chat.id)
+    language = languages[message.text]
+    resetNumbers(str(message.chat.id), language)
     bot.register_next_step_handler(msg, add_numbers)
 
     logger.info("Отработало")
 
 
-@bot.message_handler(commands=['learn'])
 def learn(message):
     
     data = json.load_s3("data.json")
@@ -312,14 +334,12 @@ def add_numbers(message):
 
     logger.info("Отработало")
 
-@bot.message_handler(commands=['add_numbers'])
 def add_numbers_handler(message):
     msg = bot.send_message(message.chat.id, INPUT_NUMBERS, reply_markup=hide_markup, parse_mode="HTML")
     bot.register_next_step_handler(msg, add_numbers)
 
     logger.info("Отработало")
 
-@bot.message_handler(commands=['list'])
 def number_list(message):
 
     data = json.load_s3("data.json")
@@ -387,8 +407,12 @@ def dont_know(message, message_for_user):
 
 
 def send_voice(message, number):
-    file_name =  str(number) + ".opus"
+    data = json.load_s3("data.json")
+    language = data[str(message.chat.id)]["language"]
+    
+    file_name =  str(number) + "-" + language + ".opus"
     file_name_saved = '/tmp/' + file_name
+    
     
 
     success = True
@@ -398,7 +422,7 @@ def send_voice(message, number):
         success = False
 
     if not success:
-        getFpOfSynthesizedNumber(number)
+        synthesizeNumber(number, language)
         s3.upload_file(file_name_saved, file_name)
 
     with open(file_name_saved, "rb") as voice:
@@ -445,10 +469,13 @@ def handle_answer(message):
     sound = AudioSegment.from_ogg(file_name_full)
     sound.export(file_name_full_converted, format="wav")
 
-    text=recognise(file_name_full_converted)
-    
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
+    language = data[chatId]["language"]
+
+    text=recognise(file_name_full_converted, language)
+    
+    
     
     last_number = data[chatId]["last_number"]
     if (text == str(last_number)):
