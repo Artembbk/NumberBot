@@ -407,11 +407,11 @@ def number_list(message):
 def up_category(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
-    
+    mode = data[chatId]["mode"]
     last_category = data[chatId]["last_category"]
     last_number = data[chatId]["last_number"]
-    data[chatId]["numbers"][last_category].remove(last_number)
-    data[chatId]["numbers"][str(min(int(last_category) + 1, 6))].append(last_number)
+    data[chatId][mode][last_category].remove(last_number)
+    data[chatId][mode][str(min(int(last_category) + 1, 6))].append(last_number)
     
     json.dump_s3(data, "data.json")
 
@@ -426,11 +426,11 @@ def know(message):
 def to_down_category(message):
     data = json.load_s3("data.json")
     chatId = str(message.chat.id)
-
+    mode = data[chatId]["mode"]
     last_category = data[chatId]["last_category"]
     last_number = data[chatId]["last_number"]
-    data[chatId]["numbers"][last_category].remove(last_number)
-    data[chatId]["numbers"][str(max(int(last_category) - 1, 0))].append(last_number)
+    data[chatId][mode][last_category].remove(last_number)
+    data[chatId][mode][str(max(int(last_category) - 1, 0))].append(last_number)
     
     json.dump_s3(data, "data.json")
 
@@ -444,7 +444,10 @@ def dont_know(message, message_for_user):
     last_number = data[chatId]["last_number"]
     bot.send_message(message.chat.id, message_for_user, reply_markup=learn_markup_continue)
     
-    send_voice(message, last_number)
+    if (data[chatId]["mode"] == modes["По числу записать голосовое"]):
+        send_voice(message, last_number)
+    else:
+        bot.send_message(message.chat.id, last_number)
     logger.info("Отработало")
     # file_name = getFpOfSynthesizedNumber(last_number)
     # with open(file_name, "rb") as voice:
